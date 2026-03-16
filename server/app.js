@@ -114,10 +114,7 @@ app.use((err, req, res, next) => {
 // Note: Frontend is deployed separately, so we don't serve it from the backend
 // This route should not be triggered in production since frontend handles its own routing
 app.get('*', (req, res) => {
-  res.status(404).json({ 
-    success: false, 
-    message: 'API endpoint not found' 
-  });
+  res.status(404).send('Not Found');
 });
 
 // 404 handler for API routes
