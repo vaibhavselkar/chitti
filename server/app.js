@@ -86,6 +86,26 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Root route to check MongoDB connection status
+app.get('/', (req, res) => {
+  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/chitti';
+  
+  // Check MongoDB connection status
+  const isConnected = mongoose.connection.readyState === 1;
+  
+  res.json({
+    status: 'ok',
+    message: 'Chitti Backend Server',
+    mongodb: {
+      connected: isConnected,
+      uri: mongoUri,
+      connectionState: mongoose.connection.readyState
+    },
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error details:', {
@@ -111,18 +131,9 @@ app.use((err, req, res, next) => {
   }
 });
 
-// Note: Frontend is deployed separately, so we don't serve it from the backend
-// This route should not be triggered in production since frontend handles its own routing
-app.get('*', (req, res) => {
-  res.status(404).send('Not Found');
-});
-
 // 404 handler for API routes
 app.use('/api/*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found'
-  });
+  res.status(404).send('Not Found');
 });
 
 const PORT = process.env.PORT || 5000;
