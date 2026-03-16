@@ -45,12 +45,30 @@ if (!require('fs').existsSync(uploadDir)) {
 app.use('/uploads', express.static(uploadDir));
 
 // Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/chitti', {
+const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/chitti';
+
+// Enhanced connection with better error handling
+mongoose.connect(mongoUri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 5000, // 5 second timeout
+  socketTimeoutMS: 45000, // 45 second timeout
 })
-.then(() => console.log('MongoDB connected'))
-.catch(err => console.error('MongoDB connection error:', err));
+.then(() => {
+  console.log('MongoDB connected successfully');
+  console.log(`Connected to: ${mongoUri}`);
+})
+.catch(err => {
+  console.error('MongoDB connection error:', err.message);
+  console.error('Connection string used:', mongoUri);
+  
+  // Don't exit process in production, just log the error
+  if (process.env.NODE_ENV === 'production') {
+    console.log('Continuing without database connection for now...');
+  } else {
+    process.exit(1);
+  }
+});
 
 // API routes
 app.use('/api/auth', authRoutes);
