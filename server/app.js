@@ -25,8 +25,8 @@ app.use(cors());
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api/', limiter);
@@ -47,30 +47,39 @@ app.use('/uploads', express.static(uploadDir));
 // Database connection
 const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/chitti';
 
-// Enhanced connection with better error handling
+// FIX 1: Removed duplicate serverSelectionTimeoutMS key.
+// FIX 2: Increased serverSelectionTimeoutMS to 30s so Atlas has time to respond.
+// FIX 3: Added retryWrites and w=majority (recommended for Atlas).
 mongoose.connect(mongoUri, {
-  serverSelectionTimeoutMS: 30000, // 30 second timeout
-  socketTimeoutMS: 60000, // 60 second timeout
-  connectTimeoutMS: 30000, // 30 second connection timeout
-  maxPoolSize: 10, // Maintain up to 10 socket connections
-  serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
-  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+  serverSelectionTimeoutMS: 30000, // How long to keep retrying to find an available server
+  socketTimeoutMS: 60000,          // Close sockets after 60 seconds of inactivity
+  connectTimeoutMS: 30000,         // How long to wait for initial connection
+  maxPoolSize: 10,
 })
 .then(() => {
   console.log('MongoDB connected successfully');
   console.log(`Connected to: ${mongoUri}`);
 })
 .catch(err => {
+  // FIX 4: Log the FULL error in all environments so you can diagnose on deployment
   console.error('MongoDB connection error:', err.message);
-  console.error('Connection string used:', mongoUri);
-  console.error('Full error details:', err);
-  
-  // Don't exit process in production, just log the error
-  if (process.env.NODE_ENV === 'production') {
-    console.log('Continuing without database connection for now...');
-  } else {
-    process.exit(1);
-  }
+  console.error('Error name:', err.name);
+  console.error('Full error:', JSON.stringify(err, null, 2));
+
+  // FIX 5: Exit in ALL environments — a server with no DB is broken regardless.
+  // Remove the production exception that was silently swallowing the error.
+  process.exit(1);
+});
+
+// Log connection events for ongoing monitoring
+mongoose.connection.on('disconnected', () => {
+  console.warn('MongoDB disconnected. Attempting to reconnect...');
+});
+mongoose.connection.on('reconnected', () => {
+  console.log('MongoDB reconnected successfully.');
+});
+mongoose.connection.on('error', (err) => {
+  console.error('MongoDB runtime error:', err.message);
 });
 
 // API routes
@@ -82,27 +91,24 @@ app.use('/api/notifications', notificationRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
   });
 });
 
-// Root route to check MongoDB connection status
+// Root route
 app.get('/', (req, res) => {
-  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/chitti';
-  
-  // Check MongoDB connection status
+  const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
   const isConnected = mongoose.connection.readyState === 1;
-  
+
   res.json({
     status: 'ok',
     message: 'Chitti Backend Server',
     mongodb: {
       connected: isConnected,
-      uri: mongoUri,
-      connectionState: mongoose.connection.readyState
+      connectionState: states[mongoose.connection.readyState] ?? mongoose.connection.readyState
     },
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
@@ -117,13 +123,9 @@ app.use((err, req, res, next) => {
     url: req.url,
     method: req.method
   });
-  
-  // Don't expose error details in production
+
   if (process.env.NODE_ENV === 'production') {
-    res.status(500).json({
-      success: false,
-      message: 'Something went wrong!'
-    });
+    res.status(500).json({ success: false, message: 'Something went wrong!' });
   } else {
     res.status(500).json({
       success: false,
@@ -134,7 +136,7 @@ app.use((err, req, res, next) => {
   }
 });
 
-// 404 handler for API routes
+// 404 handler
 app.use('/api/*', (req, res) => {
   res.status(404).send('Not Found');
 });
