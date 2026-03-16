@@ -95,7 +95,13 @@ app.use((err, req, res, next) => {
 
 // Serve frontend for all other routes (SPA fallback)
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  const indexPath = path.join(__dirname, '../client/dist/index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      console.error('Error serving index.html:', err);
+      res.status(500).json({ success: false, message: 'Frontend files not found' });
+    }
+  });
 });
 
 // 404 handler for API routes
