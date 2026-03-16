@@ -93,24 +93,13 @@ app.use((err, req, res, next) => {
   }
 });
 
-// Serve frontend for all other routes (SPA fallback)
+// Note: Frontend is deployed separately, so we don't serve it from the backend
+// This route should not be triggered in production since frontend handles its own routing
 app.get('*', (req, res) => {
-  // In production deployment, frontend is served separately
-  // This fallback is only for local development
-  if (process.env.NODE_ENV === 'production') {
-    res.status(404).json({ 
-      success: false, 
-      message: 'Frontend not found - deploy frontend separately' 
-    });
-  } else {
-    const indexPath = path.join(__dirname, '../client/dist/index.html');
-    res.sendFile(indexPath, (err) => {
-      if (err) {
-        console.error('Error serving index.html:', err);
-        res.status(500).json({ success: false, message: 'Frontend files not found' });
-      }
-    });
-  }
+  res.status(404).json({ 
+    success: false, 
+    message: 'API endpoint not found' 
+  });
 });
 
 // 404 handler for API routes
