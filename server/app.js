@@ -49,8 +49,6 @@ const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/chitti';
 
 // Enhanced connection with better error handling
 mongoose.connect(mongoUri, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
   serverSelectionTimeoutMS: 30000, // 30 second timeout
   socketTimeoutMS: 60000, // 60 second timeout
   connectTimeoutMS: 30000, // 30 second connection timeout
