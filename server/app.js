@@ -51,8 +51,12 @@ const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/chitti';
 mongoose.connect(mongoUri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000, // 5 second timeout
-  socketTimeoutMS: 45000, // 45 second timeout
+  serverSelectionTimeoutMS: 30000, // 30 second timeout
+  socketTimeoutMS: 60000, // 60 second timeout
+  connectTimeoutMS: 30000, // 30 second connection timeout
+  maxPoolSize: 10, // Maintain up to 10 socket connections
+  serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
+  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
 })
 .then(() => {
   console.log('MongoDB connected successfully');
@@ -61,6 +65,7 @@ mongoose.connect(mongoUri, {
 .catch(err => {
   console.error('MongoDB connection error:', err.message);
   console.error('Connection string used:', mongoUri);
+  console.error('Full error details:', err);
   
   // Don't exit process in production, just log the error
   if (process.env.NODE_ENV === 'production') {
