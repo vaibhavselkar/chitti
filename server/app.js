@@ -59,6 +59,11 @@ app.use('/api/members', memberRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);
 
+// Serve frontend for all other routes (SPA fallback)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 
