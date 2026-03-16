@@ -11,6 +11,14 @@
   ],
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "https://chitti-gray.vercel.app/api/$1"
+    },
+    {
+      "src": "/uploads/(.*)",
+      "dest": "https://chitti-gray.vercel.app/uploads/$1"
+    },
+    {
       "src": "/(.*)",
       "dest": "/dist/index.html"
     }
