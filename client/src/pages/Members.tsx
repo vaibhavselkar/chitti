@@ -4,11 +4,13 @@ import { toast } from 'react-hot-toast';
 import { Plus, Search, Users, Loader2, Phone } from 'lucide-react';
 import { memberAPI } from '../services/api';
 import { Member } from '../types';
+import NewMemberModal from '../components/NewMemberModal';
 
 const Members: React.FC = () => {
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchMembers();
@@ -33,6 +35,15 @@ const Members: React.FC = () => {
     fetchMembers();
   };
 
+  const handleAddMember = () => {
+    setIsModalOpen(true);
+  };
+
+  const handleModalSuccess = () => {
+    fetchMembers();
+    setIsModalOpen(false);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -40,7 +51,7 @@ const Members: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Members</h1>
           <p className="text-gray-600 mt-1">Manage all chit fund members.</p>
         </div>
-        <button className="btn-primary flex items-center space-x-2">
+        <button onClick={handleAddMember} className="btn-primary flex items-center space-x-2">
           <Plus className="h-4 w-4" />
           <span>Add Member</span>
         </button>
@@ -78,7 +89,6 @@ const Members: React.FC = () => {
                 <tr>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Name</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Phone</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">Email</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Total Paid</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
                 </tr>
@@ -97,7 +107,6 @@ const Members: React.FC = () => {
                         <span>{member.phone}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-gray-600">{member.email}</td>
                     <td className="py-3 px-4 text-gray-600">₹{member.totalPaid.toLocaleString()}</td>
                     <td className="py-3 px-4">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
@@ -112,6 +121,13 @@ const Members: React.FC = () => {
         </div>
       )}
     </div>
+
+    <NewMemberModal
+      isOpen={isModalOpen}
+      onClose={() => setIsModalOpen(false)}
+      onSuccess={handleModalSuccess}
+    />
+  </div>
   );
 };
 
