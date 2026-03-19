@@ -1,0 +1,29 @@
+{
+  "name": "chitti-management-saas",
+  "version": "1.0.0",
+  "description": "Multi-tenant Chitti Management SaaS System",
+  "private": true,
+  "scripts": {
+    "dev:client": "cd client && npm run dev",
+    "dev:server": "cd server && npm run dev",
+    "build": "cd server && npm run build",
+    "install:all": "npm install && cd client && npm install && cd ../server && npm install",
+    "start": "cd server && npm start"
+  },
+  "keywords": [
+    "chitti",
+    "management",
+    "saas",
+    "finance",
+    "multi-tenant"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.13.6",
+    "html-pdf-node": "^1.0.8",
+    "pdfkit": "^0.18.0",
+    "twilio": "^5.13.0",
+    "typescript": "^5.9.3"
+  }
+}
