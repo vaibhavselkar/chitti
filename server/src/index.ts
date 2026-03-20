@@ -43,7 +43,7 @@ app.use('/api', limiter)
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
     ? process.env.CLIENT_URL
-    : ['http://localhost:3005', 'http://localhost:3000', 'https://chitti-gray.vercel.app'],
+    : ['http://localhost:3005', 'http://localhost:3000', 'https://chitti-gray.vercel.app/'],
   credentials: true
 }))
 
