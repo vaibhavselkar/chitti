@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import axios from 'axios'
+import axiosInstance from '../lib/axiosInstance'
 
 interface User {
   _id: string
@@ -35,7 +35,7 @@ export const useAuthStore = create<AuthState>()(
       login: async (email: string, password: string) => {
         set({ isLoading: true, error: null })
         try {
-          const response = await axios.post('/api/auth/login', { email, password })
+          const response = await axiosInstance.post('/auth/login', { email, password })
           const { user, token } = response.data
           
           set({ 
@@ -56,11 +56,11 @@ export const useAuthStore = create<AuthState>()(
       signup: async (name: string, email: string, password: string, phoneNumber: string) => {
         set({ isLoading: true, error: null })
         try {
-          const response = await axios.post('/api/auth/signup', { 
-            name, 
-            email, 
-            password, 
-            phoneNumber 
+          const response = await axiosInstance.post('/auth/signup', {
+            name,
+            email,
+            password,
+            phoneNumber
           })
           const { user, token } = response.data
           
@@ -81,7 +81,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         set({ user: null, token: null, error: null })
-        axios.post('/api/auth/logout')
+        axiosInstance.post('/auth/logout')
       },
 
       checkAuth: async () => {
@@ -89,11 +89,7 @@ export const useAuthStore = create<AuthState>()(
         if (!token) return
 
         try {
-          const response = await axios.get('/api/auth/me', {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          })
+          const response = await axiosInstance.get('/auth/me')
           set({ user: response.data.user, error: null })
         } catch (error) {
           set({ user: null, token: null, error: null })
