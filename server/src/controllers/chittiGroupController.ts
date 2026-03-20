@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import { ChittiGroup } from '../models/ChittiGroup'
+import { ChittiMember } from '../models/ChittiMember'
 import { validationResult } from 'express-validator'
 
 // @desc    Get all Chitti groups for admin
@@ -16,10 +17,23 @@ export const getGroups = async (req: Request, res: Response): Promise<void> => {
       .sort({ createdAt: -1 })
       .lean()
 
+    // Count enrolled members per group
+    const memberCounts = await ChittiMember.aggregate([
+      { $match: { adminId: req.user._id } },
+      { $group: { _id: '$groupId', count: { $sum: 1 } } }
+    ])
+    const countMap: Record<string, number> = {}
+    memberCounts.forEach(({ _id, count }) => { countMap[_id.toString()] = count })
+
+    const data = groups.map(g => ({
+      ...g,
+      enrolledMembers: countMap[g._id.toString()] || 0
+    }))
+
     res.json({
       success: true,
-      data: groups,
-      count: groups.length
+      data,
+      count: data.length
     })
   } catch (error: any) {
     console.error('Get groups error:', error)

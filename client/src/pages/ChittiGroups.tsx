@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Users, Plus, UserPlus, Trash2, Eye, TrendingUp } from 'lucide-react'
+import { Calendar, Users, Plus, UserPlus, Trash2, Eye, UserCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import CreateGroup from '../components/CreateGroup'
 import QuickAddMemberToGroup from '../components/QuickAddMemberToGroup'
@@ -10,6 +10,7 @@ interface ChittiGroup {
   _id: string
   name: string
   totalMembers: number
+  enrolledMembers: number
   monthlyAmount: number
   totalMonths: number
   collectionDay: number
@@ -49,10 +50,7 @@ export default function ChittiGroups() {
     }
   }
 
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount)
-
-  return (
+return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between">
@@ -69,8 +67,8 @@ export default function ChittiGroups() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
           { label: 'Total Groups', value: groups.length, icon: Calendar, bg: 'bg-blue-50', color: 'text-blue-600' },
-          { label: 'Total Members', value: groups.reduce((t, g) => t + g.totalMembers, 0), icon: Users, bg: 'bg-green-50', color: 'text-green-600' },
-          { label: 'Total Value', value: formatCurrency(groups.reduce((t, g) => t + g.totalMembers * g.monthlyAmount * g.totalMonths, 0)), icon: TrendingUp, bg: 'bg-purple-50', color: 'text-purple-600' }
+          { label: 'Total Members', value: groups.reduce((t, g) => t + g.enrolledMembers, 0), icon: Users, bg: 'bg-green-50', color: 'text-green-600' },
+          { label: 'Remaining Slots', value: groups.reduce((t, g) => t + Math.max(0, g.totalMembers - g.enrolledMembers), 0), icon: UserCheck, bg: 'bg-orange-50', color: 'text-orange-600' }
         ].map((s, i) => (
           <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between">
@@ -105,7 +103,7 @@ export default function ChittiGroups() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  {['Group Name', 'Members', 'Monthly Amount', 'Duration', 'Status', 'Actions'].map(h => (
+                  {['Group Name', 'Members', 'Status', 'Actions'].map(h => (
                     <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -117,18 +115,31 @@ export default function ChittiGroups() {
                       <div className="text-sm font-medium text-gray-900">{group.name}</div>
                       <div className="text-sm text-gray-500">Start: {new Date(group.startDate).toLocaleDateString()}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{group.totalMembers}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(group.monthlyAmount)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{group.totalMonths} months</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {group.enrolledMembers} / {group.totalMembers}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${group.status === 'OPEN' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
                         {group.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
-                      <button onClick={() => navigate(`/groups/${group._id}`)} className="text-blue-600 hover:text-blue-900" title="View Details"><Eye className="h-4 w-4" /></button>
-                      <button onClick={() => setQuickAddGroup(group)} disabled={group.status === 'FULL'} className="text-green-600 hover:text-green-900 disabled:opacity-40 disabled:cursor-not-allowed" title="Add Member"><UserPlus className="h-4 w-4" /></button>
-                      <button onClick={() => handleDelete(group._id)} className="text-red-600 hover:text-red-900" title="Delete Group"><Trash2 className="h-4 w-4" /></button>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => setQuickAddGroup(group)}
+                          disabled={group.status === 'FULL'}
+                          className="inline-flex items-center space-x-1 px-3 py-1.5 text-xs font-medium rounded-md bg-green-50 text-green-700 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <UserPlus className="h-3.5 w-3.5" /><span>Add Member</span>
+                        </button>
+                        <button
+                          onClick={() => navigate(`/groups/${group._id}`)}
+                          className="inline-flex items-center space-x-1 px-3 py-1.5 text-xs font-medium rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100"
+                        >
+                          <Eye className="h-3.5 w-3.5" /><span>See Details</span>
+                        </button>
+                        <button onClick={() => handleDelete(group._id)} className="text-red-400 hover:text-red-600 p-1.5"><Trash2 className="h-4 w-4" /></button>
+                      </div>
                     </td>
                   </tr>
                 ))}
