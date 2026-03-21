@@ -20,7 +20,7 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
       return
     }
 
-    const { memberId, groupId, month, year, amount, status, paymentMethod, transactionId, notes } = req.body
+    const { memberId, groupId, month, year, amount, paidAmount, status, paymentMethod, transactionId, notes } = req.body
 
     const group = await ChittiGroup.findOne({
       _id: groupId,
@@ -50,10 +50,23 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
       adminId: req.user._id.toString()
     })
 
+    // If payment exists and is PARTIAL, allow adding more
     if (existingPayment) {
+      if (existingPayment.status === 'PARTIAL' && paidAmount) {
+        existingPayment.paidAmount = (existingPayment.paidAmount || 0) + Number(paidAmount)
+        const targetAmount = existingPayment.amount
+        existingPayment.status = existingPayment.paidAmount >= targetAmount ? 'PAID' : 'PARTIAL'
+        await existingPayment.save()
+        res.json({ success: true, message: 'Payment updated', data: existingPayment })
+        return
+      }
       res.status(400).json({ message: 'Payment already exists for this month and year' })
       return
     }
+
+    const targetAmount = amount || group.monthlyAmount
+    const finalPaidAmount = paidAmount !== undefined ? Number(paidAmount) : targetAmount
+    const finalStatus = finalPaidAmount >= targetAmount ? 'PAID' : finalPaidAmount > 0 ? 'PARTIAL' : 'PENDING'
 
     const payment = new Payment({
       memberId,
@@ -61,8 +74,9 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
       adminId: req.user._id.toString(),
       month,
       year,
-      amount: amount || group.monthlyAmount,   // FIX: was monthlyContribution
-      status: status || 'PAID',
+      amount: targetAmount,
+      paidAmount: finalPaidAmount,
+      status: status || finalStatus,
       paymentMethod: paymentMethod || 'CASH',
       transactionId,
       notes
@@ -102,7 +116,7 @@ export const updatePayment = async (req: Request, res: Response): Promise<void> 
     }
 
     const { id } = req.params
-    const { status, paymentMethod, amount, transactionId, notes } = req.body
+    const { status, paymentMethod, amount, paidAmount, transactionId, notes } = req.body
 
     const payment = await Payment.findOne({
       _id: id,
@@ -117,6 +131,11 @@ export const updatePayment = async (req: Request, res: Response): Promise<void> 
     if (status) payment.status = status
     if (paymentMethod) payment.paymentMethod = paymentMethod
     if (amount) payment.amount = amount
+    if (paidAmount !== undefined) {
+      payment.paidAmount = (payment.paidAmount || 0) + Number(paidAmount)
+      const targetAmount = payment.amount
+      payment.status = payment.paidAmount >= targetAmount ? 'PAID' : payment.paidAmount > 0 ? 'PARTIAL' : 'PENDING'
+    }
     if (transactionId !== undefined) payment.transactionId = transactionId
     if (notes !== undefined) payment.notes = notes
 

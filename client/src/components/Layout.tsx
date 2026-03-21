@@ -12,6 +12,7 @@ import {
   X
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
+import { useLang } from '../lib/LangContext'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -26,6 +27,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
   const { user, logout } = useAuthStore()
+  const { lang, toggleLang } = useLang()
 
   const handleLogout = () => {
     logout()
@@ -74,7 +76,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               })}
             </nav>
           </div>
-          <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
+          <div className="flex-shrink-0 flex flex-col border-t border-gray-200 p-4 gap-2">
+            <button
+              onClick={toggleLang}
+              className="w-full text-sm font-medium px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+            >
+              {lang === 'en' ? 'తెలుగు' : 'English'}
+            </button>
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
@@ -130,7 +138,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               })}
             </nav>
           </div>
-          <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
+          <div className="flex-shrink-0 flex flex-col border-t border-gray-200 p-4 gap-2">
+            <button
+              onClick={toggleLang}
+              className="w-full text-sm font-medium px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+            >
+              {lang === 'en' ? 'తెలుగు' : 'English'}
+            </button>
             <div className="flex items-center w-full">
               <div className="flex-shrink-0">
                 <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">

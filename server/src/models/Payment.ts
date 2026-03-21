@@ -7,8 +7,9 @@ export interface IPayment extends Document {
   month: number
   year: number
   amount: number
+  paidAmount: number
   paymentDate: Date
-  status: 'PAID' | 'PENDING' | 'OVERDUE'
+  status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE'
   paymentMethod?: string
   transactionId?: string
   notes?: string
@@ -47,13 +48,18 @@ const paymentSchema = new Schema<IPayment>({
     required: [true, 'Payment amount is required'],
     min: 0
   },
+  paidAmount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   paymentDate: {
     type: Date,
     default: Date.now
   },
   status: {
     type: String,
-    enum: ['PAID', 'PENDING', 'OVERDUE'],
+    enum: ['PAID', 'PARTIAL', 'PENDING', 'OVERDUE'],
     default: 'PENDING'
   },
   paymentMethod: {
@@ -91,6 +97,7 @@ paymentSchema.virtual('formattedPaymentDate').get(function() {
 paymentSchema.virtual('statusColor').get(function() {
   switch (this.status) {
     case 'PAID': return 'green'
+    case 'PARTIAL': return 'orange'
     case 'PENDING': return 'yellow'
     case 'OVERDUE': return 'red'
     default: return 'gray'

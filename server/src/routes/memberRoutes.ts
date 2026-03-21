@@ -34,7 +34,8 @@ router.post('/', [
     .withMessage('Member name must be between 2 and 50 characters'),
   body('phoneNumber')
     .matches(/^[6-9]\d{9}$/)
-    .withMessage('Please enter a valid Indian phone number')
+    .withMessage('Please enter a valid Indian phone number'),
+  body('address').optional().trim().isLength({ max: 200 }).withMessage('Address cannot exceed 200 characters')
 ], createMember)
 
 // @desc    Update member
@@ -49,7 +50,8 @@ router.put('/:id', [
   body('phoneNumber')
     .optional()
     .matches(/^[6-9]\d{9}$/)
-    .withMessage('Please enter a valid Indian phone number')
+    .withMessage('Please enter a valid Indian phone number'),
+  body('address').optional().trim().isLength({ max: 200 }).withMessage('Address cannot exceed 200 characters')
 ], updateMember)
 
 // @desc    Delete member

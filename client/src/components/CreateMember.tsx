@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { X, Users, User, Phone } from 'lucide-react'
+import { X, Users, User, Phone, MapPin } from 'lucide-react'
 import toast from 'react-hot-toast'
 import axiosInstance from '../lib/axiosInstance'
 
@@ -13,6 +13,7 @@ interface CreateMemberProps {
 interface FormData {
   name: string
   phoneNumber: string
+  address?: string
 }
 
 export default function CreateMember({ isOpen, onClose, onSuccess }: CreateMemberProps) {
@@ -119,6 +120,28 @@ export default function CreateMember({ isOpen, onClose, onSuccess }: CreateMembe
             {errors.phoneNumber && (
               <p className="mt-1 text-sm text-red-600">{errors.phoneNumber.message}</p>
             )}
+          </div>
+
+          {/* Address */}
+          <div>
+            <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
+              Address <span className="text-gray-400 font-normal">(Optional)</span>
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <MapPin className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                {...register('address', {
+                  maxLength: { value: 200, message: 'Address cannot exceed 200 characters' }
+                })}
+                type="text"
+                id="address"
+                className="input-field pl-10"
+                placeholder="e.g., Hyderabad, Telangana"
+              />
+            </div>
+            {errors.address && <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>}
           </div>
 
           {/* Guidelines */}

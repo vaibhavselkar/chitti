@@ -4,6 +4,7 @@ export interface IMember extends Document {
   name: string
   phoneNumber: string
   adminId: string
+  address?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -23,6 +24,11 @@ const memberSchema = new Schema<IMember>({
   adminId: {
     type: String,
     required: [true, 'Admin ID is required']
+  },
+  address: {
+    type: String,
+    trim: true,
+    maxlength: [200, 'Address cannot exceed 200 characters']
   }
 }, {
   timestamps: true

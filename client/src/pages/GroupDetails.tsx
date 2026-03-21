@@ -21,9 +21,10 @@ interface Payment {
   _id: string
   memberId: string | { _id: string }
   amount: number
+  paidAmount?: number
   month: number
   year: number
-  status: 'PAID' | 'PENDING' | 'OVERDUE'
+  status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE'
 }
 
 interface Withdrawal {
@@ -69,6 +70,8 @@ export default function GroupDetails() {
   const [withdrawForm, setWithdrawForm] = useState({ amount: '', reason: '' })
   const [withdrawing, setWithdrawing] = useState(false)
   const [markingPaid, setMarkingPaid] = useState<string | null>(null)
+  const [partialModal, setPartialModal] = useState<Member | null>(null)
+  const [partialAmount, setPartialAmount] = useState('')
 
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
@@ -78,16 +81,24 @@ export default function GroupDetails() {
     if (!groupId) return
     try {
       setIsLoading(true)
-      const [groupRes, membersRes, paymentsRes, withdrawalsRes] = await Promise.all([
+      const [groupRes, membersRes] = await Promise.all([
         axiosInstance.get(`/groups/${groupId}`),
-        axiosInstance.get(`/groups/${groupId}/members`),
-        axiosInstance.get(`/payments/groups/${groupId}`),
-        axiosInstance.get(`/withdrawals/groups/${groupId}`)
+        axiosInstance.get(`/groups/${groupId}/members`)
       ])
       setGroup(groupRes.data.data)
       setMembers(membersRes.data.data || [])
-      setAllPayments(paymentsRes.data.data || [])
-      setWithdrawals(withdrawalsRes.data.data || [])
+
+      // Non-critical - don't fail if these error
+      try {
+        const paymentsRes = await axiosInstance.get(`/payments/groups/${groupId}`)
+        setAllPayments(paymentsRes.data.data || [])
+      } catch { setAllPayments([]) }
+
+      try {
+        const withdrawalsRes = await axiosInstance.get(`/withdrawals/groups/${groupId}`)
+        setWithdrawals(withdrawalsRes.data.data || [])
+      } catch { setWithdrawals([]) }
+
     } catch {
       toast.error('Failed to load group data')
     } finally {
@@ -130,6 +141,7 @@ export default function GroupDetails() {
   const getRowColor = (member: Member): RowColor => {
     const payment = getThisMonthPayment(member.memberId)
     if (payment?.status === 'PAID') return 'green'
+    if (payment?.status === 'PARTIAL') return 'orange'
     const totalPaid = getTotalPaidMonths(member.memberId)
     const elapsed = group ? getMonthsElapsed(group.startDate) : 0
     // If they've missed multiple past months → black
@@ -162,6 +174,27 @@ export default function GroupDetails() {
       toast.error(error.response?.data?.message || 'Failed to record payment')
     } finally {
       setMarkingPaid(null)
+    }
+  }
+
+  const handlePartialPayment = async () => {
+    if (!partialModal || !group || !partialAmount) return
+    try {
+      await axiosInstance.post('/payments', {
+        memberId: partialModal.memberId,
+        groupId,
+        month: selectedMonth,
+        year: selectedYear,
+        amount: group.monthlyAmount,
+        paidAmount: Number(partialAmount),
+        paymentMethod: 'CASH'
+      })
+      toast.success(`Partial payment of ₹${partialAmount} recorded for ${partialModal.name}`)
+      setPartialModal(null)
+      setPartialAmount('')
+      fetchAll()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to record payment')
     }
   }
 
@@ -237,7 +270,10 @@ export default function GroupDetails() {
   const isFull = slotsRemaining <= 0
 
   const paidThisMonth = filteredMembers.filter(m => getThisMonthPayment(m.memberId)?.status === 'PAID').length
-  const pendingThisMonth = filteredMembers.length - paidThisMonth
+  const pendingThisMonth = filteredMembers.filter(m => {
+    const pay = getThisMonthPayment(m.memberId)
+    return !pay || (pay.status !== 'PAID' && pay.status !== 'PARTIAL')
+  }).length
 
   return (
     <div className="space-y-6">
@@ -344,7 +380,7 @@ export default function GroupDetails() {
         {/* Legend */}
         <div className="px-6 py-2 border-b border-gray-100 bg-gray-50 flex flex-wrap gap-4 text-xs text-gray-500">
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-green-500 inline-block" />Paid this month</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-orange-400 inline-block" />Not paid this month</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-orange-400 inline-block" />Not paid / partial this month</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-gray-800 inline-block" />Multiple months overdue</span>
         </div>
 
@@ -445,6 +481,15 @@ export default function GroupDetails() {
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
                             <CheckCircle className="h-3.5 w-3.5" /> Paid · {formatCurrency(thisMonthPay.amount)}
                           </span>
+                        ) : thisMonthPay?.status === 'PARTIAL' ? (
+                          <div>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                              <Clock className="h-3.5 w-3.5" /> {formatCurrency(thisMonthPay.paidAmount || 0)} paid
+                            </span>
+                            <div className="text-xs text-orange-600 mt-0.5">
+                              ₹{(group.monthlyAmount - (thisMonthPay.paidAmount || 0)).toLocaleString()} due
+                            </div>
+                          </div>
                         ) : (
                           <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
                             color === 'black'
@@ -483,16 +528,31 @@ export default function GroupDetails() {
 
                       {/* Actions */}
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          {thisMonthPay?.status !== 'PAID' && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {thisMonthPay?.status === 'PARTIAL' ? (
                             <button
-                              onClick={() => handleMarkPaid(member)}
-                              disabled={markingPaid === member.memberId}
-                              className="px-2.5 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                              onClick={() => { setPartialModal(member); setPartialAmount('') }}
+                              className="px-2.5 py-1.5 text-xs font-medium bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
                             >
-                              {markingPaid === member.memberId ? '...' : 'Mark Paid'}
+                              Add Amount
                             </button>
-                          )}
+                          ) : thisMonthPay?.status !== 'PAID' ? (
+                            <>
+                              <button
+                                onClick={() => handleMarkPaid(member)}
+                                disabled={markingPaid === member.memberId}
+                                className="px-2.5 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                              >
+                                {markingPaid === member.memberId ? '...' : 'Mark Paid'}
+                              </button>
+                              <button
+                                onClick={() => { setPartialModal(member); setPartialAmount('') }}
+                                className="px-2.5 py-1.5 text-xs font-medium bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+                              >
+                                Pay Partial
+                              </button>
+                            </>
+                          ) : null}
                           {!withdrawal && (
                             <button
                               onClick={() => openWithdrawModal(member)}
@@ -588,6 +648,67 @@ export default function GroupDetails() {
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                 >
                   {withdrawing ? 'Saving...' : 'Confirm Withdrawal'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Partial Payment Modal ── */}
+      {partialModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                  <Banknote className="h-6 w-6 text-yellow-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {getThisMonthPayment(partialModal.memberId)?.status === 'PARTIAL' ? 'Add to Partial Payment' : 'Partial Payment'}
+                  </h2>
+                  <p className="text-sm text-gray-500">{partialModal.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setPartialModal(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-yellow-50 rounded-lg p-3 text-sm text-yellow-800">
+                {getThisMonthPayment(partialModal.memberId)?.status === 'PARTIAL' ? (
+                  <>
+                    Already paid: <strong>{formatCurrency(getThisMonthPayment(partialModal.memberId)?.paidAmount || 0)}</strong>
+                    &nbsp;· Remaining: <strong>{formatCurrency(group.monthlyAmount - (getThisMonthPayment(partialModal.memberId)?.paidAmount || 0))}</strong>
+                  </>
+                ) : (
+                  <>Monthly amount: <strong>{formatCurrency(group.monthlyAmount)}</strong> for <strong>{MONTH_NAMES[selectedMonth - 1]} {selectedYear}</strong></>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount to Record (₹)</label>
+                <input
+                  type="number"
+                  value={partialAmount}
+                  onChange={e => setPartialAmount(e.target.value)}
+                  className="input-field"
+                  min={1}
+                  max={group.monthlyAmount}
+                  placeholder={`Enter amount (max ₹${group.monthlyAmount})`}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2 border-t border-gray-200">
+                <button onClick={() => setPartialModal(null)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+                <button
+                  onClick={handlePartialPayment}
+                  disabled={!partialAmount || Number(partialAmount) <= 0}
+                  className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50 transition-colors"
+                >
+                  Record Payment
                 </button>
               </div>
             </div>

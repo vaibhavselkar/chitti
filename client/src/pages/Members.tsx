@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, Plus, Trash2, Search, Filter, Phone, User as UserIcon } from 'lucide-react'
+import { Users, Plus, Trash2, Search, Filter, Phone, User as UserIcon, Pencil, X, MapPin } from 'lucide-react'
 import toast from 'react-hot-toast'
 import CreateMember from '../components/CreateMember'
 import axiosInstance from '../lib/axiosInstance'
@@ -8,6 +8,7 @@ interface Member {
   _id: string
   name: string
   phoneNumber: string
+  address?: string
   createdAt: string
 }
 
@@ -17,6 +18,9 @@ export default function Members() {
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState('name')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [editingMember, setEditingMember] = useState<Member | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', phoneNumber: '', address: '' })
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => { fetchMembers() }, [])
 
@@ -40,6 +44,26 @@ export default function Members() {
       fetchMembers()
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to delete member')
+    }
+  }
+
+  const handleEdit = (member: Member) => {
+    setEditingMember(member)
+    setEditForm({ name: member.name, phoneNumber: member.phoneNumber, address: member.address || '' })
+  }
+
+  const handleSave = async () => {
+    if (!editingMember) return
+    setIsSaving(true)
+    try {
+      await axiosInstance.put(`/members/${editingMember._id}`, editForm)
+      toast.success('Member updated successfully')
+      setEditingMember(null)
+      fetchMembers()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update member')
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -129,6 +153,11 @@ export default function Members() {
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">{member.name}</div>
+                          {member.address && (
+                            <div className="flex items-center text-xs text-gray-500 mt-0.5">
+                              <MapPin className="h-3 w-3 mr-1" />{member.address}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -142,9 +171,14 @@ export default function Members() {
                       {new Date(member.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button onClick={() => handleDelete(member._id)} className="text-red-600 hover:text-red-900">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => handleEdit(member)} className="text-blue-500 hover:text-blue-700">
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button onClick={() => handleDelete(member._id)} className="text-red-600 hover:text-red-900">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -155,6 +189,86 @@ export default function Members() {
       </div>
 
       <CreateMember isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} onSuccess={fetchMembers} />
+
+      {/* Edit Member Modal */}
+      {editingMember && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">Edit Member</h2>
+              <button onClick={() => setEditingMember(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Member Name</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <UserIcon className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                    className="input-field pl-10"
+                    placeholder="Member name"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Phone className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="tel"
+                    value={editForm.phoneNumber}
+                    onChange={e => setEditForm(f => ({ ...f, phoneNumber: e.target.value }))}
+                    className="input-field pl-10"
+                    placeholder="Phone number"
+                    maxLength={10}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Address <span className="text-gray-400 font-normal">(Optional)</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <MapPin className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={editForm.address}
+                    onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))}
+                    className="input-field pl-10"
+                    placeholder="e.g., Hyderabad, Telangana"
+                    maxLength={200}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-2 border-t border-gray-200">
+                <button
+                  onClick={() => setEditingMember(null)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isSaving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

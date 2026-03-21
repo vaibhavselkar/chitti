@@ -37,12 +37,13 @@ router.post('/', [
     .withMessage('Amount must be a positive number'),
   body('status')
     .optional()
-    .isIn(['PAID', 'PENDING', 'OVERDUE'])
-    .withMessage('Status must be PAID, PENDING, or OVERDUE'),
+    .isIn(['PAID', 'PARTIAL', 'PENDING', 'OVERDUE'])
+    .withMessage('Status must be PAID, PARTIAL, PENDING, or OVERDUE'),
   body('paymentMethod')
     .optional()
     .isIn(['CASH', 'BANK_TRANSFER', 'UPI', 'CHEQUE'])
-    .withMessage('Payment method must be valid')
+    .withMessage('Payment method must be valid'),
+  body('paidAmount').optional().isFloat({ min: 0 }).withMessage('Paid amount must be positive')
 ], createPayment)
 
 // @desc    Update payment
@@ -51,8 +52,8 @@ router.post('/', [
 router.put('/:id', [
   body('status')
     .optional()
-    .isIn(['PAID', 'PENDING', 'OVERDUE'])
-    .withMessage('Status must be PAID, PENDING, or OVERDUE'),
+    .isIn(['PAID', 'PARTIAL', 'PENDING', 'OVERDUE'])
+    .withMessage('Status must be PAID, PARTIAL, PENDING, or OVERDUE'),
   body('paymentMethod')
     .optional()
     .isIn(['CASH', 'BANK_TRANSFER', 'UPI', 'CHEQUE'])
@@ -60,7 +61,8 @@ router.put('/:id', [
   body('amount')
     .optional()
     .isFloat({ min: 0 })
-    .withMessage('Amount must be a positive number')
+    .withMessage('Amount must be a positive number'),
+  body('paidAmount').optional().isFloat({ min: 0 }).withMessage('Paid amount must be positive')
 ], updatePayment)
 
 // @desc    Delete payment
@@ -74,7 +76,7 @@ router.delete('/:id', deletePayment)
 router.get('/groups/:groupId', [
   query('month').optional().isInt({ min: 1, max: 12 }),
   query('year').optional().isInt({ min: 2020 }),
-  query('status').optional().isIn(['PAID', 'PENDING', 'OVERDUE'])
+  query('status').optional().isIn(['PAID', 'PARTIAL', 'PENDING', 'OVERDUE'])
 ], getGroupPayments)
 
 // @desc    Get all payments for a member
@@ -83,7 +85,7 @@ router.get('/groups/:groupId', [
 router.get('/members/:memberId', [
   query('month').optional().isInt({ min: 1, max: 12 }),
   query('year').optional().isInt({ min: 2020 }),
-  query('status').optional().isIn(['PAID', 'PENDING', 'OVERDUE'])
+  query('status').optional().isIn(['PAID', 'PARTIAL', 'PENDING', 'OVERDUE'])
 ], getMemberPayments)
 
 // @desc    Get payment matrix for a group
@@ -102,8 +104,8 @@ router.put('/bulk', [
     .isArray({ min: 1 })
     .withMessage('Payment IDs array is required'),
   body('status')
-    .isIn(['PAID', 'PENDING', 'OVERDUE'])
-    .withMessage('Status must be PAID, PENDING, or OVERDUE')
+    .isIn(['PAID', 'PARTIAL', 'PENDING', 'OVERDUE'])
+    .withMessage('Status must be PAID, PARTIAL, PENDING, or OVERDUE')
 ], bulkUpdatePayments)
 
 export default router

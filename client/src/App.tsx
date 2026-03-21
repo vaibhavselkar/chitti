@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast'
 import { useAuthStore } from './store/authStore'
 import { useEffect } from 'react'
+import { LangProvider } from './lib/LangContext'
 
 // Layouts
 import Layout from './components/Layout'
@@ -27,7 +28,7 @@ function App() {
   }, [checkAuth])
 
   return (
-    <>
+    <LangProvider>
       <Router>
         <Routes>
           {/* Public Routes */}
@@ -63,8 +64,8 @@ function App() {
           } />
         </Routes>
       </Router>
-      
-      <Toaster 
+
+      <Toaster
         position="top-right"
         toastOptions={{
           duration: 4000,
@@ -74,7 +75,7 @@ function App() {
           },
         }}
       />
-    </>
+    </LangProvider>
   )
 }
 

@@ -74,12 +74,13 @@ export const createMember = async (req: Request, res: Response): Promise<void> =
       return
     }
 
-    const { name, phoneNumber } = req.body
+    const { name, phoneNumber, address } = req.body
 
     // Create new member
     const member = new Member({
       name,
       phoneNumber,
+      address,
       adminId: req.user._id.toString()
     })
 
@@ -120,7 +121,7 @@ export const updateMember = async (req: Request, res: Response): Promise<void> =
       return
     }
 
-    const { name, phoneNumber } = req.body
+    const { name, phoneNumber, address } = req.body
 
     const member = await Member.findOne({
       _id: req.params.id,
@@ -134,6 +135,7 @@ export const updateMember = async (req: Request, res: Response): Promise<void> =
 
     // Update fields
     if (name) member.name = name
+    if (address !== undefined) member.address = address
     if (phoneNumber) {
       // Check if phone number is already taken by another member for this admin
       const existingPhone = await Member.findOne({ 

@@ -1,0 +1,102 @@
+export type Lang = 'en' | 'te'
+
+export const translations = {
+  en: {
+    // Nav
+    dashboard: 'Dashboard',
+    chittiGroups: 'Chitti Groups',
+    members: 'Members',
+    notifications: 'Notifications',
+    reports: 'Reports',
+    settings: 'Settings',
+    // Groups page
+    createGroup: 'Create Group',
+    totalGroups: 'Total Groups',
+    totalMembers: 'Total Members',
+    remainingSlots: 'Remaining Slots',
+    yourGroups: 'Your Groups',
+    groupName: 'Group Name',
+    status: 'Status',
+    actions: 'Actions',
+    addMember: 'Add Member',
+    seeDetails: 'See Details',
+    noGroupsYet: 'No groups yet',
+    createFirstGroup: 'Create your first Chitti group to get started',
+    // Members page
+    addNewMember: 'Add Member',
+    memberName: 'Member Name',
+    phoneNumber: 'Phone Number',
+    memberSince: 'Member Since',
+    noMembersFound: 'No members found',
+    // Group details
+    membersPayments: 'Members & Payments',
+    paidThisMonth: 'Paid',
+    pendingThisMonth: 'Pending',
+    collected: 'Collected',
+    markPaid: 'Mark Paid',
+    payPartial: 'Pay Partial',
+    addAmount: 'Add Amount',
+    withdraw: 'Withdraw',
+    // Payment status
+    paid: 'Paid',
+    notPaid: 'Not Paid',
+    overdue: 'Overdue',
+    partial: 'Partial',
+    // Common
+    save: 'Save',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    edit: 'Edit',
+    search: 'Search',
+    loading: 'Loading...',
+  },
+  te: {
+    // Nav
+    dashboard: 'డాష్‌బోర్డ్',
+    chittiGroups: 'చిట్టీ గ్రూప్‌లు',
+    members: 'సభ్యులు',
+    notifications: 'నోటిఫికేషన్లు',
+    reports: 'నివేదికలు',
+    settings: 'సెట్టింగ్లు',
+    // Groups page
+    createGroup: 'గ్రూప్ సృష్టించు',
+    totalGroups: 'మొత్తం గ్రూప్‌లు',
+    totalMembers: 'మొత్తం సభ్యులు',
+    remainingSlots: 'మిగిలిన స్థానాలు',
+    yourGroups: 'మీ గ్రూప్‌లు',
+    groupName: 'గ్రూప్ పేరు',
+    status: 'స్థితి',
+    actions: 'చర్యలు',
+    addMember: 'సభ్యుని చేర్చు',
+    seeDetails: 'వివరాలు చూడు',
+    noGroupsYet: 'గ్రూప్‌లు లేవు',
+    createFirstGroup: 'మొదటి చిట్టీ గ్రూప్ సృష్టించండి',
+    // Members page
+    addNewMember: 'సభ్యుని చేర్చు',
+    memberName: 'సభ్యుని పేరు',
+    phoneNumber: 'ఫోన్ నంబర్',
+    memberSince: 'సభ్యత్వం తేదీ',
+    noMembersFound: 'సభ్యులు కనుగొనబడలేదు',
+    // Group details
+    membersPayments: 'సభ్యులు & చెల్లింపులు',
+    paidThisMonth: 'చెల్లించారు',
+    pendingThisMonth: 'పెండింగ్',
+    collected: 'సేకరించారు',
+    markPaid: 'చెల్లించినట్లు గుర్తించు',
+    payPartial: 'పాక్షికంగా చెల్లించు',
+    addAmount: 'మొత్తం చేర్చు',
+    withdraw: 'తీసుకో',
+    // Payment status
+    paid: 'చెల్లించారు',
+    notPaid: 'చెల్లించలేదు',
+    overdue: 'గడువు మించింది',
+    partial: 'పాక్షిక',
+    // Common
+    save: 'సేవ్ చేయి',
+    cancel: 'రద్దు చేయి',
+    delete: 'తొలగించు',
+    edit: 'సవరించు',
+    search: 'వెతుకు',
+    loading: 'లోడ్ అవుతోంది...',
+  }
+}
