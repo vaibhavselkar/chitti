@@ -214,7 +214,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Page content */}
         <main className="flex-1">
-          <div className="py-6">
+          <div className="py-6 pb-20 md:pb-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
               <Outlet />
               {children}
@@ -222,6 +222,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
+
+      {/* Mobile bottom navigation */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-30 flex">
+        {[
+          { name: 'Home', href: '/dashboard', icon: LayoutDashboard },
+          { name: 'Groups', href: '/groups', icon: Calendar },
+          { name: 'Members', href: '/members', icon: Users },
+          { name: 'Settings', href: '/settings', icon: Settings },
+        ].map(item => {
+          const Icon = item.icon
+          const isActive = location.pathname === item.href
+          return (
+            <Link
+              key={item.href}
+              to={item.href}
+              className={`flex-1 flex flex-col items-center justify-center py-2 text-xs transition-colors ${isActive ? 'text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <Icon className={`h-5 w-5 mb-0.5 ${isActive ? 'text-primary-600' : 'text-gray-400'}`} />
+              <span>{item.name}</span>
+            </Link>
+          )
+        })}
+      </nav>
     </div>
   )
 }

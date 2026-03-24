@@ -4,6 +4,7 @@ export interface IChittiMember extends Document {
   memberId: Types.ObjectId
   groupId: Types.ObjectId
   adminId: Types.ObjectId
+  chittiCount: number
   joinedAt: Date
   createdAt: Date
   updatedAt: Date
@@ -24,6 +25,12 @@ const chittiMemberSchema = new Schema<IChittiMember>({
     type: Schema.Types.ObjectId,
     required: [true, 'Admin ID is required'],
     ref: 'User'
+  },
+  chittiCount: {
+    type: Number,
+    default: 1,
+    min: [1, 'Must have at least 1 chitti'],
+    max: [10, 'Maximum 10 chittis per member per group']
   },
   joinedAt: {
     type: Date,

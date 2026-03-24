@@ -21,8 +21,9 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<voi
       return
     }
 
-    const { memberId } = req.body
+    const { memberId, chittiCount: rawChittiCount } = req.body
     const { groupId } = req.params
+    const chittiCount = Math.max(1, parseInt(rawChittiCount) || 1)
 
     // Validate group exists and belongs to admin
     const group = await ChittiGroup.findOne({
@@ -53,33 +54,56 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<voi
       adminId: req.user._id.toString()
     })
 
+    // Get all group members to compute used slots
+    const allGroupMembers = await ChittiMember.find({ groupId, adminId: req.user._id.toString() })
+
+    // Used slots excluding current member (if updating)
+    const usedSlots = allGroupMembers
+      .filter(m => !existingMember || m._id.toString() !== existingMember._id.toString())
+      .reduce((sum, m) => sum + (m.chittiCount || 1), 0)
+
+    const newTotalSlots = usedSlots + (existingMember ? existingMember.chittiCount + chittiCount : chittiCount)
+
+    if (newTotalSlots > group.totalMembers) {
+      const available = group.totalMembers - usedSlots - (existingMember?.chittiCount || 0)
+      res.status(400).json({
+        message: `Not enough slots. Only ${available} slot(s) available`
+      })
+      return
+    }
+
     if (existingMember) {
-      res.status(400).json({ message: 'Member is already in this group' })
+      existingMember.chittiCount = existingMember.chittiCount + chittiCount
+      await existingMember.save()
+
+      // Update group status
+      const totalUsed = usedSlots + existingMember.chittiCount
+      if (totalUsed >= group.totalMembers && group.status !== 'FULL') {
+        group.status = 'FULL'
+        await group.save()
+      }
+
+      res.json({
+        success: true,
+        message: `Chitti count updated to ${existingMember.chittiCount}`,
+        data: { ...existingMember.toObject(), member: { _id: member._id, name: member.name, phoneNumber: member.phoneNumber } }
+      })
       return
     }
 
-    // Check if group is full
-    const currentMembersCount = await ChittiMember.countDocuments({
-      groupId,
-      adminId: req.user._id.toString()
-    })
-
-    if (currentMembersCount >= group.totalMembers) {
-      res.status(400).json({ message: 'Group is already full' })
-      return
-    }
-
-    // Add member to group
+    // Create new ChittiMember
     const chittiMember = new ChittiMember({
       memberId,
       groupId,
-      adminId: req.user._id.toString()
+      adminId: req.user._id.toString(),
+      chittiCount
     })
 
     await chittiMember.save()
 
     // Update group status if it's now full
-    if (currentMembersCount + 1 === group.totalMembers) {
+    const totalUsedAfter = usedSlots + chittiCount
+    if (totalUsedAfter >= group.totalMembers && group.status !== 'FULL') {
       group.status = 'FULL'
       await group.save()
     }
@@ -98,7 +122,7 @@ export const addMemberToGroup = async (req: Request, res: Response): Promise<voi
     })
   } catch (error: any) {
     console.error('Add member to group error:', error)
-    
+
     // Handle duplicate key error
     if (error.code === 11000) {
       res.status(400).json({ message: 'Member is already in this group' })
@@ -155,17 +179,13 @@ export const removeMemberFromGroup = async (req: Request, res: Response): Promis
       return
     }
 
-    // Update group status if it was full and now has space
-    if (group.status === 'FULL') {
-      const currentMembersCount = await ChittiMember.countDocuments({
-        groupId,
-        adminId: req.user._id.toString()
-      })
+    // Update group status using sum of chittiCounts
+    const remainingMembers = await ChittiMember.find({ groupId, adminId: req.user._id.toString() })
+    const totalUsed = remainingMembers.reduce((sum, m) => sum + (m.chittiCount || 1), 0)
 
-      if (currentMembersCount < group.totalMembers) {
-        group.status = 'OPEN'
-        await group.save()
-      }
+    if (totalUsed < group.totalMembers && group.status === 'FULL') {
+      group.status = 'OPEN'
+      await group.save()
     }
 
     res.json({
@@ -214,9 +234,12 @@ export const getGroupMembers = async (req: Request, res: Response): Promise<void
         memberId: memberDoc._id,
         name: memberDoc.name,
         phoneNumber: memberDoc.phoneNumber,
+        chittiCount: cm.chittiCount || 1,
         joinedAt: cm.joinedAt
       }
     })
+
+    const totalChittis = members.reduce((sum, m) => sum + (m.chittiCount || 1), 0)
 
     res.json({
       success: true,
@@ -225,7 +248,7 @@ export const getGroupMembers = async (req: Request, res: Response): Promise<void
       groupInfo: {
         name: group.name,
         totalMembers: group.totalMembers,
-        currentMembers: members.length,
+        currentMembers: totalChittis,
         status: group.status
       }
     })
@@ -289,5 +312,61 @@ export const getMemberGroups = async (req: Request, res: Response): Promise<void
   } catch (error: any) {
     console.error('Get member groups error:', error)
     res.status(500).json({ message: 'Server error while fetching member groups' })
+  }
+}
+
+// @desc    Update member chitti count in group
+// @route   PUT /api/groups/:groupId/members/:memberId/chitti-count
+// @access  Private
+export const updateMemberChittiCount = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: 'Not authorized' })
+      return
+    }
+
+    const { groupId, memberId } = req.params
+    const { chittiCount } = req.body
+
+    const group = await ChittiGroup.findOne({ _id: groupId, adminId: req.user._id.toString() })
+    if (!group) {
+      res.status(404).json({ message: 'Group not found' })
+      return
+    }
+
+    const chittiMember = await ChittiMember.findOne({ memberId, groupId, adminId: req.user._id.toString() })
+    if (!chittiMember) {
+      res.status(404).json({ message: 'Member not found in this group' })
+      return
+    }
+
+    // Check capacity: sum of all others + new chittiCount
+    const allMembers = await ChittiMember.find({ groupId, adminId: req.user._id.toString() })
+    const otherSlots = allMembers
+      .filter(m => m._id.toString() !== chittiMember._id.toString())
+      .reduce((sum, m) => sum + (m.chittiCount || 1), 0)
+
+    if (otherSlots + chittiCount > group.totalMembers) {
+      res.status(400).json({ message: `Only ${group.totalMembers - otherSlots} slot(s) available` })
+      return
+    }
+
+    chittiMember.chittiCount = chittiCount
+    await chittiMember.save()
+
+    // Update group status
+    const totalUsed = otherSlots + chittiCount
+    if (totalUsed >= group.totalMembers && group.status !== 'FULL') {
+      group.status = 'FULL'
+      await group.save()
+    } else if (totalUsed < group.totalMembers && group.status === 'FULL') {
+      group.status = 'OPEN'
+      await group.save()
+    }
+
+    res.json({ success: true, message: 'Chitti count updated', data: chittiMember })
+  } catch (error: any) {
+    console.error('Update chitti count error:', error)
+    res.status(500).json({ message: 'Server error while updating chitti count' })
   }
 }

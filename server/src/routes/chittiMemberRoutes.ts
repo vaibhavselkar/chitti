@@ -1,10 +1,11 @@
 import { Router } from 'express'
 import { body } from 'express-validator'
-import { 
-  addMemberToGroup, 
-  removeMemberFromGroup, 
+import {
+  addMemberToGroup,
+  removeMemberFromGroup,
   getGroupMembers,
-  getMemberGroups
+  getMemberGroups,
+  updateMemberChittiCount
 } from '../controllers/chittiMemberController'
 import { authMiddleware } from '../middleware/auth'
 
@@ -23,7 +24,8 @@ router.post('/:groupId/members', [
   body('memberData')
     .optional()
     .isObject()
-    .withMessage('Member data must be an object if provided')
+    .withMessage('Member data must be an object if provided'),
+  body('chittiCount').optional().isInt({ min: 1, max: 10 }).withMessage('Chitti count must be between 1 and 10')
 ], addMemberToGroup)
 
 // @desc    Remove member from group
@@ -35,6 +37,13 @@ router.delete('/:groupId/members/:memberId', removeMemberFromGroup)
 // @route   GET /api/groups/:groupId/members
 // @access  Private
 router.get('/:groupId/members', getGroupMembers)
+
+// @desc    Update member chitti count in group
+// @route   PUT /api/groups/:groupId/members/:memberId/chitti-count
+// @access  Private
+router.put('/:groupId/members/:memberId/chitti-count', [
+  body('chittiCount').isInt({ min: 1, max: 10 }).withMessage('Chitti count must be between 1 and 10')
+], updateMemberChittiCount)
 
 // @desc    Get all groups for a member
 // @route   GET /api/members/:memberId/groups

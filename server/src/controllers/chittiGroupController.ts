@@ -17,10 +17,10 @@ export const getGroups = async (req: Request, res: Response): Promise<void> => {
       .sort({ createdAt: -1 })
       .lean()
 
-    // Count enrolled members per group
+    // Sum enrolled chitti slots per group
     const memberCounts = await ChittiMember.aggregate([
       { $match: { adminId: req.user._id } },
-      { $group: { _id: '$groupId', count: { $sum: 1 } } }
+      { $group: { _id: '$groupId', count: { $sum: { $ifNull: ['$chittiCount', 1] } } } }
     ])
     const countMap: Record<string, number> = {}
     memberCounts.forEach(({ _id, count }) => { countMap[_id.toString()] = count })

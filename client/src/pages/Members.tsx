@@ -21,6 +21,7 @@ export default function Members() {
   const [editingMember, setEditingMember] = useState<Member | null>(null)
   const [editForm, setEditForm] = useState({ name: '', phoneNumber: '', address: '' })
   const [isSaving, setIsSaving] = useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
   useEffect(() => { fetchMembers() }, [])
 
@@ -36,11 +37,16 @@ export default function Members() {
     }
   }
 
-  const handleDelete = async (memberId: string) => {
-    if (!window.confirm('Are you sure you want to delete this member?')) return
+  const handleDelete = (memberId: string) => {
+    setDeleteConfirmId(memberId)
+  }
+
+  const doDelete = async () => {
+    if (!deleteConfirmId) return
     try {
-      await axiosInstance.delete(`/members/${memberId}`)
+      await axiosInstance.delete(`/members/${deleteConfirmId}`)
       toast.success('Member deleted successfully')
+      setDeleteConfirmId(null)
       fetchMembers()
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to delete member')
@@ -189,6 +195,20 @@ export default function Members() {
       </div>
 
       <CreateMember isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} onSuccess={fetchMembers} />
+
+      {/* Delete Confirm Modal */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Member?</h3>
+            <p className="text-sm text-gray-600 mb-6">This will permanently delete the member. This action cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setDeleteConfirmId(null)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+              <button onClick={doDelete} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Member Modal */}
       {editingMember && (

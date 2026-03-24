@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Users, Plus, Trash2, Search, Calendar,
   Phone, User as UserIcon, ChevronLeft, ChevronRight,
-  CheckCircle, Clock, AlertCircle, X, Banknote
+  CheckCircle, Clock, AlertCircle, X, Banknote, MessageSquare, CheckSquare
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import QuickAddMemberToGroup from '../components/QuickAddMemberToGroup'
@@ -14,6 +14,7 @@ interface Member {
   memberId: string
   name: string
   phoneNumber: string
+  chittiCount: number
   joinedAt: string
 }
 
@@ -72,6 +73,10 @@ export default function GroupDetails() {
   const [markingPaid, setMarkingPaid] = useState<string | null>(null)
   const [partialModal, setPartialModal] = useState<Member | null>(null)
   const [partialAmount, setPartialAmount] = useState('')
+  const [activeTab, setActiveTab] = useState<'payments' | 'withdrawals'>('payments')
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
+  const [markAllConfirm, setMarkAllConfirm] = useState(false)
+  const [markingAll, setMarkingAll] = useState(false)
 
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
@@ -164,7 +169,7 @@ export default function GroupDetails() {
         groupId,
         month: selectedMonth,
         year: selectedYear,
-        amount: group.monthlyAmount,
+        amount: group.monthlyAmount * (member.chittiCount || 1),
         status: 'PAID',
         paymentMethod: 'CASH'
       })
@@ -185,7 +190,7 @@ export default function GroupDetails() {
         groupId,
         month: selectedMonth,
         year: selectedYear,
-        amount: group.monthlyAmount,
+        amount: group.monthlyAmount * (partialModal.chittiCount || 1),
         paidAmount: Number(partialAmount),
         paymentMethod: 'CASH'
       })
@@ -229,24 +234,73 @@ export default function GroupDetails() {
     }
   }
 
-  const handleRemoveMember = async (memberId: string) => {
-    if (!window.confirm('Remove this member from the group?')) return
+  const handleRemoveMember = (memberId: string) => {
+    setConfirmRemoveId(memberId)
+  }
+
+  const doRemoveMember = async () => {
+    if (!confirmRemoveId) return
     try {
-      await axiosInstance.delete(`/groups/${groupId}/members/${memberId}`)
+      await axiosInstance.delete(`/groups/${groupId}/members/${confirmRemoveId}`)
       toast.success('Member removed')
+      setConfirmRemoveId(null)
       fetchAll()
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to remove member')
     }
   }
 
+  const handleMarkAllPaid = async () => {
+    if (!group) return
+    const unpaid = members.filter(m => {
+      const pay = getThisMonthPayment(m.memberId)
+      return !pay || (pay.status !== 'PAID' && pay.status !== 'PARTIAL')
+    })
+    if (unpaid.length === 0) {
+      toast.success('All members already paid!')
+      setMarkAllConfirm(false)
+      return
+    }
+    setMarkingAll(true)
+    try {
+      await Promise.all(unpaid.map(member =>
+        axiosInstance.post('/payments', {
+          memberId: member.memberId,
+          groupId,
+          month: selectedMonth,
+          year: selectedYear,
+          amount: group.monthlyAmount * (member.chittiCount || 1),
+          status: 'PAID',
+          paymentMethod: 'CASH'
+        })
+      ))
+      toast.success(`Marked ${unpaid.length} member${unpaid.length !== 1 ? 's' : ''} as paid`)
+      setMarkAllConfirm(false)
+      fetchAll()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to mark all paid')
+    } finally {
+      setMarkingAll(false)
+    }
+  }
+
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount)
 
-  const filteredMembers = members.filter(m =>
-    m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    m.phoneNumber.includes(searchTerm)
-  )
+  const filteredMembers = members
+    .filter(m =>
+      m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.phoneNumber.includes(searchTerm)
+    )
+    .sort((a, b) => {
+      const order = (m: Member) => {
+        const pay = getThisMonthPayment(m.memberId)
+        if (!pay || pay.status === 'PENDING' || pay.status === 'OVERDUE') return 0
+        if (pay.status === 'PARTIAL') return 1
+        return 2
+      }
+      return order(a) - order(b)
+    })
 
   if (isLoading) {
     return (
@@ -270,6 +324,9 @@ export default function GroupDetails() {
   const isFull = slotsRemaining <= 0
 
   const paidThisMonth = filteredMembers.filter(m => getThisMonthPayment(m.memberId)?.status === 'PAID').length
+  const collectedThisMonth = filteredMembers
+    .filter(m => getThisMonthPayment(m.memberId)?.status === 'PAID')
+    .reduce((sum, m) => sum + group.monthlyAmount * (m.chittiCount || 1), 0)
   const pendingThisMonth = filteredMembers.filter(m => {
     const pay = getThisMonthPayment(m.memberId)
     return !pay || (pay.status !== 'PAID' && pay.status !== 'PARTIAL')
@@ -339,24 +396,100 @@ export default function GroupDetails() {
       {/* ── Main Table ── */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
 
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('payments')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'payments' ? 'border-primary-600 text-primary-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          >
+            Members & Payments
+          </button>
+          <button
+            onClick={() => setActiveTab('withdrawals')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'withdrawals' ? 'border-primary-600 text-primary-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          >
+            Withdrawals {withdrawals.length > 0 && <span className="ml-1.5 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">{withdrawals.length}</span>}
+          </button>
+        </div>
+
+        {activeTab === 'withdrawals' ? (
+          /* ── Withdrawals Tab ── */
+          <div>
+            {withdrawals.length === 0 ? (
+              <div className="py-16 text-center">
+                <Banknote className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">No withdrawals recorded yet</p>
+                <p className="text-xs text-gray-400 mt-1">Use the "Withdraw" button in the Payments tab to record a withdrawal</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      {['Member', 'Month', 'Amount', 'Status'].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {withdrawals.map(w => {
+                      const member = members.find(m => m.memberId === (typeof w.memberId === 'string' ? w.memberId : w.memberId._id))
+                      return (
+                        <tr key={w._id} className="hover:bg-gray-50">
+                          <td className="px-4 py-4">
+                            <div className="text-sm font-medium text-gray-900">{member?.name ?? '—'}</div>
+                            <div className="text-xs text-gray-500">{member?.phoneNumber ?? ''}</div>
+                          </td>
+                          <td className="px-4 py-4 text-sm text-gray-700">{MONTH_SHORT[w.month - 1]} {w.year}</td>
+                          <td className="px-4 py-4 text-sm font-semibold text-gray-900">{formatCurrency(w.amount)}</td>
+                          <td className="px-4 py-4">
+                            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                              w.status === 'APPROVED' ? 'bg-green-100 text-green-700'
+                              : w.status === 'REJECTED' ? 'bg-red-100 text-red-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {w.status}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* ── Payments Tab ── */
+          <>
         {/* Table toolbar */}
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Members & Payments</h2>
               <p className="text-sm text-gray-500">Payment status for each member</p>
             </div>
-            {/* Month nav */}
-            <div className="flex items-center space-x-2">
-              <button onClick={() => shiftMonth(-1)} className="p-1.5 hover:bg-gray-100 rounded-lg">
-                <ChevronLeft className="h-5 w-5 text-gray-600" />
-              </button>
-              <div className="px-4 py-1.5 bg-primary-50 rounded-lg text-sm font-semibold text-primary-700 min-w-[120px] text-center">
-                {MONTH_SHORT[selectedMonth - 1]} {selectedYear}
+            <div className="flex items-center gap-3">
+              {/* Mark All Paid */}
+              {pendingThisMonth > 0 && (
+                <button
+                  onClick={() => setMarkAllConfirm(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <CheckSquare className="h-3.5 w-3.5" /> Mark All Paid
+                </button>
+              )}
+              {/* Month nav */}
+              <div className="flex items-center space-x-1">
+                <button onClick={() => shiftMonth(-1)} className="p-1.5 hover:bg-gray-100 rounded-lg">
+                  <ChevronLeft className="h-5 w-5 text-gray-600" />
+                </button>
+                <div className="px-4 py-1.5 bg-primary-50 rounded-lg text-sm font-semibold text-primary-700 min-w-[120px] text-center">
+                  {MONTH_SHORT[selectedMonth - 1]} {selectedYear}
+                </div>
+                <button onClick={() => shiftMonth(1)} className="p-1.5 hover:bg-gray-100 rounded-lg">
+                  <ChevronRight className="h-5 w-5 text-gray-600" />
+                </button>
               </div>
-              <button onClick={() => shiftMonth(1)} className="p-1.5 hover:bg-gray-100 rounded-lg">
-                <ChevronRight className="h-5 w-5 text-gray-600" />
-              </button>
             </div>
           </div>
 
@@ -371,7 +504,7 @@ export default function GroupDetails() {
               </span>
               <span className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 rounded-full text-xs font-medium text-purple-700">
                 <Banknote className="h-3.5 w-3.5" />
-                Collected: {formatCurrency(paidThisMonth * group.monthlyAmount)}
+                Collected: {formatCurrency(collectedThisMonth)}
               </span>
             </div>
           )}
@@ -457,6 +590,11 @@ export default function GroupDetails() {
                             <div className={`flex items-center text-xs mt-0.5 ${subTextColor}`}>
                               <Phone className="h-3 w-3 mr-1" />{member.phoneNumber}
                             </div>
+                            {member.chittiCount > 1 && (
+                              <div className="flex items-center text-xs mt-0.5 font-semibold text-purple-600">
+                                ×{member.chittiCount} chitti · {formatCurrency(group.monthlyAmount * member.chittiCount)}/mo
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -530,12 +668,21 @@ export default function GroupDetails() {
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2 flex-wrap">
                           {thisMonthPay?.status === 'PARTIAL' ? (
-                            <button
-                              onClick={() => { setPartialModal(member); setPartialAmount('') }}
-                              className="px-2.5 py-1.5 text-xs font-medium bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
-                            >
-                              Add Amount
-                            </button>
+                            <>
+                              <button
+                                onClick={() => { setPartialModal(member); setPartialAmount('') }}
+                                className="px-2.5 py-1.5 text-xs font-medium bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+                              >
+                                Add Amount
+                              </button>
+                              <a
+                                href={`https://wa.me/91${member.phoneNumber}?text=${encodeURIComponent(`Hi ${member.name}, please pay the remaining Chitti amount for ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}.`)}`}
+                                target="_blank" rel="noopener noreferrer"
+                                className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors" title="Send WhatsApp reminder"
+                              >
+                                <MessageSquare className="h-4 w-4" />
+                              </a>
+                            </>
                           ) : thisMonthPay?.status !== 'PAID' ? (
                             <>
                               <button
@@ -551,6 +698,13 @@ export default function GroupDetails() {
                               >
                                 Pay Partial
                               </button>
+                              <a
+                                href={`https://wa.me/91${member.phoneNumber}?text=${encodeURIComponent(`Hi ${member.name}, please pay your Chitti amount of ₹${group.monthlyAmount * (member.chittiCount || 1)} for ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}.`)}`}
+                                target="_blank" rel="noopener noreferrer"
+                                className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors" title="Send WhatsApp reminder"
+                              >
+                                <MessageSquare className="h-4 w-4" />
+                              </a>
                             </>
                           ) : null}
                           {!withdrawal && (
@@ -589,6 +743,8 @@ export default function GroupDetails() {
               ? `✓ All ${members.length} members paid for ${MONTH_SHORT[selectedMonth - 1]} ${selectedYear}`
               : `${pendingThisMonth} member${pendingThisMonth !== 1 ? 's' : ''} yet to pay for ${MONTH_SHORT[selectedMonth - 1]} ${selectedYear}`}
           </div>
+        )}
+          </>
         )}
       </div>
 
@@ -681,10 +837,10 @@ export default function GroupDetails() {
                 {getThisMonthPayment(partialModal.memberId)?.status === 'PARTIAL' ? (
                   <>
                     Already paid: <strong>{formatCurrency(getThisMonthPayment(partialModal.memberId)?.paidAmount || 0)}</strong>
-                    &nbsp;· Remaining: <strong>{formatCurrency(group.monthlyAmount - (getThisMonthPayment(partialModal.memberId)?.paidAmount || 0))}</strong>
+                    &nbsp;· Remaining: <strong>{formatCurrency(group.monthlyAmount * (partialModal.chittiCount || 1) - (getThisMonthPayment(partialModal.memberId)?.paidAmount || 0))}</strong>
                   </>
                 ) : (
-                  <>Monthly amount: <strong>{formatCurrency(group.monthlyAmount)}</strong> for <strong>{MONTH_NAMES[selectedMonth - 1]} {selectedYear}</strong></>
+                  <>Monthly amount: <strong>{formatCurrency(group.monthlyAmount * (partialModal.chittiCount || 1))}</strong> for <strong>{MONTH_NAMES[selectedMonth - 1]} {selectedYear}</strong></>
                 )}
               </div>
 
@@ -696,8 +852,8 @@ export default function GroupDetails() {
                   onChange={e => setPartialAmount(e.target.value)}
                   className="input-field"
                   min={1}
-                  max={group.monthlyAmount}
-                  placeholder={`Enter amount (max ₹${group.monthlyAmount})`}
+                  max={group.monthlyAmount * (partialModal.chittiCount || 1)}
+                  placeholder={`Enter amount (max ₹${group.monthlyAmount * (partialModal.chittiCount || 1)})`}
                 />
               </div>
 
@@ -711,6 +867,43 @@ export default function GroupDetails() {
                   Record Payment
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirm Remove Modal ── */}
+      {confirmRemoveId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Remove Member?</h3>
+            <p className="text-sm text-gray-600 mb-6">This will remove the member from this group. Their payment history will not be deleted.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmRemoveId(null)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+              <button onClick={doRemoveMember} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Mark All Paid Confirm Modal ── */}
+      {markAllConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Mark All Paid?</h3>
+            <p className="text-sm text-gray-600 mb-1">
+              This will mark <strong>{members.filter(m => { const p = getThisMonthPayment(m.memberId); return !p || (p.status !== 'PAID' && p.status !== 'PARTIAL') }).length} member(s)</strong> as paid for <strong>{MONTH_NAMES[selectedMonth - 1]} {selectedYear}</strong>.
+            </p>
+            <p className="text-xs text-gray-400 mb-6">Partial payments will not be affected.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setMarkAllConfirm(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+              <button
+                onClick={handleMarkAllPaid}
+                disabled={markingAll}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {markingAll ? 'Marking...' : 'Confirm'}
+              </button>
             </div>
           </div>
         </div>
