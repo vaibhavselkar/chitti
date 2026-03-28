@@ -77,6 +77,7 @@ export default function GroupDetails() {
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
   const [markAllConfirm, setMarkAllConfirm] = useState(false)
   const [markingAll, setMarkingAll] = useState(false)
+  const [profitMode, setProfitMode] = useState<'projected' | 'current'>('projected')
 
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
@@ -423,6 +424,29 @@ export default function GroupDetails() {
                 <p className="text-xs text-gray-400 mt-1">Use the "Withdraw" button in the Payments tab to record a withdrawal</p>
               </div>
             ) : (
+              <>
+                {/* Profit mode toggle */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
+                  <p className="text-xs text-gray-500">
+                    {profitMode === 'projected'
+                      ? 'Showing projected profit after full chitti completes'
+                      : 'Showing profit based on payments made so far'}
+                  </p>
+                  <div className="flex items-center bg-white border border-gray-200 rounded-lg p-0.5 gap-0.5">
+                    <button
+                      onClick={() => setProfitMode('projected')}
+                      className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${profitMode === 'projected' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                      Projected
+                    </button>
+                    <button
+                      onClick={() => setProfitMode('current')}
+                      className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${profitMode === 'current' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                      Current
+                    </button>
+                  </div>
+                </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
@@ -436,7 +460,6 @@ export default function GroupDetails() {
                     {withdrawals.map(w => {
                       const wMemberId = getMemberId(w.memberId)
                       const member = members.find(m => m.memberId === wMemberId)
-                      // Total amount paid IN by this member across all months
                       const totalPaidIn = allPayments
                         .filter(p => getMemberId(p.memberId) === wMemberId)
                         .reduce((sum, p) => {
@@ -444,7 +467,12 @@ export default function GroupDetails() {
                           if (p.status === 'PARTIAL') return sum + (p.paidAmount ?? 0)
                           return sum
                         }, 0)
-                      const profit = totalPaidIn - w.amount
+                      const projectedTotal = group
+                        ? (group.monthlyAmount * (member?.chittiCount || 1) * group.totalMonths)
+                        : totalPaidIn
+                      const profitValue = profitMode === 'projected'
+                        ? projectedTotal - w.amount
+                        : totalPaidIn - w.amount
                       return (
                         <tr key={w._id} className="hover:bg-gray-50">
                           <td className="px-4 py-4">
@@ -453,12 +481,16 @@ export default function GroupDetails() {
                           </td>
                           <td className="px-4 py-4 text-sm text-gray-700">{MONTH_SHORT[w.month - 1]} {w.year}</td>
                           <td className="px-4 py-4 text-sm font-semibold text-gray-900">{formatCurrency(w.amount)}</td>
-                          <td className="px-4 py-4 text-sm text-gray-700">{formatCurrency(totalPaidIn)}</td>
+                          <td className="px-4 py-4 text-sm text-gray-700">
+                            {profitMode === 'projected'
+                              ? formatCurrency(projectedTotal)
+                              : formatCurrency(totalPaidIn)}
+                          </td>
                           <td className="px-4 py-4">
                             <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                              profit >= 0 ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                              profitValue >= 0 ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
                             }`}>
-                              {profit >= 0 ? '+' : ''}{formatCurrency(profit)}
+                              {profitValue >= 0 ? '+' : ''}{formatCurrency(profitValue)}
                             </span>
                           </td>
                           <td className="px-4 py-4">
@@ -474,6 +506,7 @@ export default function GroupDetails() {
                   </tbody>
                 </table>
               </div>
+              </>
             )}
           </div>
         ) : (
