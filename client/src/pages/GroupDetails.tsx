@@ -78,6 +78,8 @@ export default function GroupDetails() {
   const [markAllConfirm, setMarkAllConfirm] = useState(false)
   const [markingAll, setMarkingAll] = useState(false)
   const [profitMode, setProfitMode] = useState<'projected' | 'current'>('projected')
+  const [markPaidConfirm, setMarkPaidConfirm] = useState<Member | null>(null)
+  const [markPaidWhatsApp, setMarkPaidWhatsApp] = useState(false)
 
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
@@ -164,8 +166,9 @@ export default function GroupDetails() {
   const handleMarkPaid = async (member: Member) => {
     if (!group) return
     setMarkingPaid(member.memberId)
+    setMarkPaidConfirm(null)
     try {
-      await axiosInstance.post('/payments', {
+      const res = await axiosInstance.post('/payments', {
         memberId: member.memberId,
         groupId,
         month: selectedMonth,
@@ -174,8 +177,37 @@ export default function GroupDetails() {
         status: 'PAID',
         paymentMethod: 'CASH'
       })
-      toast.success(`Payment marked for ${member.name}`)
+      const paymentId: string = res.data.data?._id
+
+      if (markPaidWhatsApp) {
+        const msg = encodeURIComponent(`Hi ${member.name}, your Chitti payment of ₹${group.monthlyAmount * (member.chittiCount || 1)} for ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear} has been recorded. Thank you!`)
+        window.open(`https://wa.me/91${member.phoneNumber}?text=${msg}`, '_blank')
+      }
+
       fetchAll()
+      toast(
+        (t) => (
+          <span className="flex items-center gap-3">
+            <span>✓ {member.name} marked as paid</span>
+            <button
+              onClick={async () => {
+                toast.dismiss(t.id)
+                try {
+                  await axiosInstance.delete(`/payments/${paymentId}`)
+                  toast.success('Payment undone')
+                  fetchAll()
+                } catch {
+                  toast.error('Could not undo payment')
+                }
+              }}
+              className="px-2 py-0.5 text-xs bg-white border border-gray-300 rounded hover:bg-gray-100 font-medium text-gray-700"
+            >
+              Undo
+            </button>
+          </span>
+        ),
+        { duration: 6000 }
+      )
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to record payment')
     } finally {
@@ -736,7 +768,7 @@ export default function GroupDetails() {
                           ) : thisMonthPay?.status !== 'PAID' ? (
                             <>
                               <button
-                                onClick={() => handleMarkPaid(member)}
+                                onClick={() => { setMarkPaidConfirm(member); setMarkPaidWhatsApp(false) }}
                                 disabled={markingPaid === member.memberId}
                                 className="px-2.5 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
                               >
@@ -917,6 +949,54 @@ export default function GroupDetails() {
                   Record Payment
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Mark Paid Confirm Modal ── */}
+      {markPaidConfirm && group && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">Confirm Payment</h3>
+                <p className="text-sm text-gray-500">{markPaidConfirm.name}</p>
+              </div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 mb-4 text-sm text-gray-700">
+              <div className="flex justify-between">
+                <span>Amount</span>
+                <span className="font-semibold">{formatCurrency(group.monthlyAmount * (markPaidConfirm.chittiCount || 1))}</span>
+              </div>
+              <div className="flex justify-between mt-1">
+                <span>Month</span>
+                <span className="font-semibold">{MONTH_NAMES[selectedMonth - 1]} {selectedYear}</span>
+              </div>
+            </div>
+            <label className="flex items-center gap-2.5 cursor-pointer mb-5 p-3 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors">
+              <input
+                type="checkbox"
+                checked={markPaidWhatsApp}
+                onChange={e => setMarkPaidWhatsApp(e.target.checked)}
+                className="w-4 h-4 accent-green-600"
+              />
+              <div>
+                <p className="text-sm font-medium text-green-800">Send WhatsApp confirmation</p>
+                <p className="text-xs text-green-600">Notify {markPaidConfirm.name} that payment was recorded</p>
+              </div>
+            </label>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setMarkPaidConfirm(null)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+              <button
+                onClick={() => handleMarkPaid(markPaidConfirm)}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                Confirm Paid
+              </button>
             </div>
           </div>
         </div>
