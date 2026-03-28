@@ -97,12 +97,7 @@ export const createGroup = async (req: Request, res: Response): Promise<void> =>
       startDate
     } = req.body
 
-    // Validate start date
     const start = new Date(startDate)
-    if (start < new Date()) {
-      res.status(400).json({ message: 'Start date cannot be in the past' })
-      return
-    }
 
     // Create new group
     const group = new ChittiGroup({
@@ -179,12 +174,7 @@ export const updateGroup = async (req: Request, res: Response): Promise<void> =>
     if (totalMonths) group.totalMonths = totalMonths
     if (collectionDay) group.collectionDay = collectionDay
     if (startDate) {
-      const start = new Date(startDate)
-      if (start < new Date()) {
-        res.status(400).json({ message: 'Start date cannot be in the past' })
-        return
-      }
-      group.startDate = start
+      group.startDate = new Date(startDate)
     }
     if (status && ['OPEN', 'FULL'].includes(status)) {
       group.status = status
