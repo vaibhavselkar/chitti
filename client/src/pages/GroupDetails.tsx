@@ -222,7 +222,8 @@ export default function GroupDetails() {
         month: selectedMonth,
         year: selectedYear,
         amount: Number(withdrawForm.amount),
-        reason: withdrawForm.reason.trim()
+        reason: withdrawForm.reason.trim(),
+        status: 'APPROVED'
       })
       toast.success(`Withdrawal recorded for ${withdrawModal.name}`)
       setWithdrawModal(null)
@@ -462,11 +463,9 @@ export default function GroupDetails() {
                           </td>
                           <td className="px-4 py-4">
                             <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                              w.status === 'APPROVED' ? 'bg-green-100 text-green-700'
-                              : w.status === 'REJECTED' ? 'bg-red-100 text-red-700'
-                              : 'bg-yellow-100 text-yellow-700'
+                              w.status === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
                             }`}>
-                              {w.status}
+                              {w.status === 'REJECTED' ? 'Rejected' : 'Approved'}
                             </span>
                           </td>
                         </tr>
@@ -669,7 +668,7 @@ export default function GroupDetails() {
                               {MONTH_SHORT[withdrawal.month - 1]} {withdrawal.year} · {formatCurrency(withdrawal.amount)}
                             </span>
                             <div className={`text-xs mt-1 ${subTextColor}`}>
-                              {withdrawal.status === 'APPROVED' ? '✓ Approved' : withdrawal.status === 'PENDING' ? '⏳ Pending' : '✗ Rejected'}
+                              {withdrawal.status === 'REJECTED' ? '✗ Rejected' : '✓ Withdrawn'}
                             </div>
                           </div>
                         ) : (
