@@ -426,14 +426,24 @@ export default function GroupDetails() {
                 <table className="min-w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      {['Member', 'Month', 'Amount', 'Status'].map(h => (
+                      {['Member', 'Month', 'Received', 'Total Paid In', 'Profit / Loss', 'Status'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {withdrawals.map(w => {
-                      const member = members.find(m => m.memberId === (typeof w.memberId === 'string' ? w.memberId : w.memberId._id))
+                      const wMemberId = getMemberId(w.memberId)
+                      const member = members.find(m => m.memberId === wMemberId)
+                      // Total amount paid IN by this member across all months
+                      const totalPaidIn = allPayments
+                        .filter(p => getMemberId(p.memberId) === wMemberId)
+                        .reduce((sum, p) => {
+                          if (p.status === 'PAID') return sum + p.amount
+                          if (p.status === 'PARTIAL') return sum + (p.paidAmount ?? 0)
+                          return sum
+                        }, 0)
+                      const profit = totalPaidIn - w.amount
                       return (
                         <tr key={w._id} className="hover:bg-gray-50">
                           <td className="px-4 py-4">
@@ -442,6 +452,14 @@ export default function GroupDetails() {
                           </td>
                           <td className="px-4 py-4 text-sm text-gray-700">{MONTH_SHORT[w.month - 1]} {w.year}</td>
                           <td className="px-4 py-4 text-sm font-semibold text-gray-900">{formatCurrency(w.amount)}</td>
+                          <td className="px-4 py-4 text-sm text-gray-700">{formatCurrency(totalPaidIn)}</td>
+                          <td className="px-4 py-4">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                              profit >= 0 ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                            }`}>
+                              {profit >= 0 ? '+' : ''}{formatCurrency(profit)}
+                            </span>
+                          </td>
                           <td className="px-4 py-4">
                             <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
                               w.status === 'APPROVED' ? 'bg-green-100 text-green-700'
