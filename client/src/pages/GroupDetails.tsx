@@ -788,7 +788,17 @@ export default function GroupDetails() {
                                 <MessageSquare className="h-4 w-4" />
                               </a>
                             </>
-                          ) : null}
+                          ) : (
+                            /* PAID — show thank-you WhatsApp */
+                            <a
+                              href={`https://wa.me/91${member.phoneNumber}?text=${encodeURIComponent(`Hi ${member.name}, thank you for your Chitti payment of ₹${group.monthlyAmount * (member.chittiCount || 1)} for ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}. Your payment has been received! 🙏`)}`}
+                              target="_blank" rel="noopener noreferrer"
+                              className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
+                              title="Send payment confirmation on WhatsApp"
+                            >
+                              <MessageSquare className="h-4 w-4" />
+                            </a>
+                          )}
                           {!withdrawal && (
                             <button
                               onClick={() => openWithdrawModal(member)}
